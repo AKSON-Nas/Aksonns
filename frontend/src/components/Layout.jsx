@@ -44,7 +44,8 @@ export default function Layout({ children }) {
     { path: '/budgets', icon: FileText, label: 'Orçamentos', premium: true },
     { path: '/stock', icon: Package, label: 'Estoque', premium: true },
     { path: '/sales', icon: TrendingUp, label: 'Vendas', premium: true },
-    { path: '/guide', icon: BookOpen, label: 'Guia' }
+    { path: '/guide', icon: BookOpen, label: 'Guia' },
+    ...(user?.role === 'admin' ? [{ path: '/admin', icon: Shield, label: 'Admin', admin: true }] : [])
   ];
 
   return (
