@@ -78,6 +78,32 @@ class PlanUpdate(BaseModel):
     features: Optional[List[PlanFeature]] = None
     is_active: Optional[bool] = None
 
+class PaymentConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    mercadopago_access_token: str
+    webhook_url: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class PaymentConfigCreate(BaseModel):
+    mercadopago_access_token: str
+    webhook_url: Optional[str] = None
+
+class Payment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    plan_name: str
+    amount: float
+    status: str = "pending"  # pending, approved, rejected
+    mercadopago_payment_id: Optional[str] = None
+    qr_code: Optional[str] = None
+    qr_code_base64: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class PaymentCreate(BaseModel):
+    plan_name: str
+
 class CompanyInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
