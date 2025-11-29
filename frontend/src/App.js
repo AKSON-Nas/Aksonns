@@ -32,6 +32,13 @@ function App() {
         try {
           await axios.post(`${API}/auth/session`, { session_id: sessionId });
           window.location.hash = '';
+          
+          // Buscar dados do usuário após criar sessão
+          const response = await axios.get(`${API}/auth/me`);
+          setUser(response.data);
+          setLoading(false);
+          
+          // Redirecionar para dashboard
           window.location.href = '/dashboard';
         } catch (error) {
           console.error('Session creation failed:', error);
