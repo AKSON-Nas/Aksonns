@@ -239,6 +239,8 @@ async def create_session(request: SessionRequest, response: Response):
     session_id = request.session_id
     
     try:
+        logger.info(f"Creating session for session_id: {session_id[:20]}...")
+        
         auth_response = requests.post(
             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
             headers={"X-Session-ID": session_id},
@@ -246,10 +248,13 @@ async def create_session(request: SessionRequest, response: Response):
         )
         
         if auth_response.status_code != 200:
+            logger.error(f"OAuth session failed: {auth_response.status_code} - {auth_response.text}")
             raise HTTPException(status_code=400, detail="Invalid session ID")
         
         data = auth_response.json()
         session_token = data["session_token"]
+        
+        logger.info(f"OAuth successful for user: {data['email']}")
         
         existing_user = await db.users.find_one({"email": data["email"]}, {"_id": 0})
         
@@ -263,8 +268,16 @@ async def create_session(request: SessionRequest, response: Response):
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.users.insert_one(user_data)
+            logger.info(f"New user created: {data['email']}")
+            user_id = data["id"]
+            plan = "free"
+        else:
+            user_id = existing_user["id"]
+            plan = existing_user.get("plan", "free")
+            logger.info(f"Existing user logged in: {data['email']}")
         
-        user_id = existing_user["id"] if existing_user else data["id"]
+        # Delete old sessions for this user
+        await db.user_sessions.delete_many({"user_id": user_id})
         
         session_data = {
             "user_id": user_id,
@@ -282,14 +295,31 @@ async def create_session(request: SessionRequest, response: Response):
             samesite="none",
             max_age=7*24*60*60,
             path="/",
-            domain=None  # Let browser set the domain automatically
+            domain=None
         )
         
-        return {"success": True, "session_token": session_token}
+        logger.info(f"Session created successfully for user: {user_id}")
+        
+        # Return user data as well
+        user_response = {
+            "id": user_id,
+            "email": data["email"],
+            "name": data["name"],
+            "picture": data["picture"],
+            "plan": plan
+        }
+        
+        return {
+            "success": True, 
+            "session_token": session_token,
+            "user": user_response
+        }
     
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Session creation error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create session")
+        logger.error(f"Session creation error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 @api_router.get("/auth/me")
 async def get_me(user: User = Depends(get_current_user)):
