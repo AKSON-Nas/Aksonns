@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Shield, Users, CreditCard, Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { Shield, Users, CreditCard, Plus, Edit, Trash2, Check, X, MessageCircle, Clock, CheckCircle, Send, HeadphonesIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
