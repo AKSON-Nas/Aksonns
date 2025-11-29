@@ -413,10 +413,7 @@ async def logout(response: Response, user: User = Depends(get_current_user), ses
     response.delete_cookie(key="session_token", path="/")
     return {"success": True}
 
-@api_router.post("/auth/upgrade-plan")
-async def upgrade_plan(user: User = Depends(get_current_user)):
-    await db.users.update_one({"id": user.id}, {"$set": {"plan": "premium"}})
-    return {"success": True, "plan": "premium"}
+# Removed: instant upgrade - now requires payment
 
 # ==================== ADMIN - PLAN MANAGEMENT ====================
 
