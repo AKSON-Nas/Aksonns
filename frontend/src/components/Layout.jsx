@@ -37,6 +37,7 @@ export default function Layout({ children }) {
     { path: '/stock', icon: Package, label: 'Estoque', premium: true },
     { path: '/sales', icon: TrendingUp, label: 'Vendas', premium: true },
     { path: '/guide', icon: BookOpen, label: 'Guia' },
+    { path: '/support', icon: HeadphonesIcon, label: 'Suporte' },
     ...(user?.role === 'admin' ? [{ path: '/admin', icon: Shield, label: 'Admin', admin: true }] : [])
   ];
 
