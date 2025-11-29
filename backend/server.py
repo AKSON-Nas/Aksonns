@@ -259,6 +259,22 @@ async def get_current_user(session_token: Optional[str] = Cookie(None), authoriz
     
     return User(**user)
 
+async def get_admin_user(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+async def check_feature_access(user: User, feature_name: str):
+    """Check if user's plan has access to a feature"""
+    plan = await db.plans.find_one({"name": user.plan}, {"_id": 0})
+    if not plan:
+        return False
+    
+    for feature in plan.get("features", []):
+        if feature["name"] == feature_name and feature["enabled"]:
+            return True
+    return False
+
 # ==================== AUTH ENDPOINTS ====================
 
 @api_router.post("/auth/session")
