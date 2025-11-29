@@ -9,6 +9,7 @@ import Sales from './pages/Sales';
 import Guide from './pages/Guide';
 import AdminPanel from './pages/AdminPanel';
 import PaymentPage from './pages/PaymentPage';
+import SupportPage from './pages/SupportPage';
 import Layout from './components/Layout';
 import { Toaster } from 'sonner';
 import '@/App.css';
