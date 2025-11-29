@@ -92,6 +92,7 @@ function App() {
           <Route path="/stock" element={user ? <Layout><Stock /></Layout> : <Navigate to="/" />} />
           <Route path="/sales" element={user ? <Layout><Sales /></Layout> : <Navigate to="/" />} />
           <Route path="/guide" element={user ? <Layout><Guide /></Layout> : <Navigate to="/" />} />
+          <Route path="/admin" element={user && user.role === 'admin' ? <Layout><AdminPanel /></Layout> : <Navigate to="/" />} />
         </Routes>
       </BrowserRouter>
     </AppContext.Provider>
