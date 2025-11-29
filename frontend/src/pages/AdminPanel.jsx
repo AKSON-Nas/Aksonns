@@ -515,11 +515,32 @@ export default function AdminPanel() {
                 </Button>
 
                 {configSaved && (
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <p className="text-sm text-green-800 flex items-center">
-                      <Check className="h-4 w-4 mr-2" />
-                      Pagamentos configurados! Usuários já podem gerar QR Codes.
-                    </p>
+                  <div className="space-y-3">
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-800 flex items-center">
+                        <Check className="h-4 w-4 mr-2" />
+                        Pagamentos configurados! Usuários já podem gerar QR Codes.
+                      </p>
+                    </div>
+                    
+                    <div className={`p-4 rounded-lg border ${
+                      paymentConfig.mercadopago_access_token?.startsWith('TEST-') 
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-blue-50 border-blue-200'
+                    }`}>
+                      <p className="text-sm font-semibold mb-1">
+                        {paymentConfig.mercadopago_access_token?.startsWith('TEST-')
+                          ? '⚠️ Modo TESTE Ativo'
+                          : '✅ Modo PRODUÇÃO Ativo'
+                        }
+                      </p>
+                      <p className="text-xs">
+                        {paymentConfig.mercadopago_access_token?.startsWith('TEST-')
+                          ? 'Pagamentos simulados. Para pagamentos reais, use credenciais de produção.'
+                          : 'Recebendo pagamentos reais via PIX.'
+                        }
+                      </p>
+                    </div>
                   </div>
                 )}
 
