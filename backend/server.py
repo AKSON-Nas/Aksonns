@@ -326,34 +326,61 @@ async def create_session(request: SessionRequest, response: Response):
         
         logger.info(f"OAuth successful for user: {data['email']}")
         
-        existing_user = await db.users.find_one({"email": data["email"]}, {"_id": 0})
+        # Check if this is the admin email
+        role = "admin" if data["email"] == "aksonns4@gmail.com" else "user"
         
-        if not existing_user:
-            # Check if this is the admin email
-            role = "admin" if data["email"] == "aksonns4@gmail.com" else "user"
-            
-            user_data = {
-                "id": data["id"],
-                "email": data["email"],
-                "name": data["name"],
-                "picture": data["picture"],
-                "plan": "free",
-                "role": role,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.users.insert_one(user_data)
-            logger.info(f"New user created: {data['email']} with role: {role}")
-            user_id = data["id"]
-            plan = "free"
-            
-            # If admin, log special message
-            if role == "admin":
-                logger.info(f"⭐ ADMIN USER CREATED: {data['email']}")
-        else:
+        # Use upsert to avoid duplicates - update if exists, insert if not
+        user_data = {
+            "id": data["id"],
+            "email": data["email"],
+            "name": data["name"],
+            "picture": data["picture"],
+            "role": role
+        }
+        
+        # Find existing user by email or id
+        existing_user = await db.users.find_one(
+            {"$or": [{"email": data["email"]}, {"id": data["id"]}]}, 
+            {"_id": 0}
+        )
+        
+        if existing_user:
+            # Update existing user (keep plan, update name/picture)
+            await db.users.update_one(
+                {"id": existing_user["id"]},
+                {"$set": {
+                    "name": data["name"],
+                    "picture": data["picture"],
+                    "email": data["email"]
+                }}
+            )
             user_id = existing_user["id"]
             plan = existing_user.get("plan", "free")
-            role = existing_user.get("role", "user")
+            role = existing_user.get("role", role)
             logger.info(f"Existing user logged in: {data['email']}")
+        else:
+            # Create new user
+            user_data["plan"] = "free"
+            user_data["created_at"] = datetime.now(timezone.utc).isoformat()
+            
+            try:
+                await db.users.insert_one(user_data)
+                logger.info(f"New user created: {data['email']} with role: {role}")
+                if role == "admin":
+                    logger.info(f"⭐ ADMIN USER CREATED: {data['email']}")
+            except Exception as e:
+                # If insert fails (duplicate), fetch the user
+                logger.warning(f"User insert failed (likely duplicate): {e}")
+                existing_user = await db.users.find_one({"email": data["email"]}, {"_id": 0})
+                if existing_user:
+                    user_id = existing_user["id"]
+                    plan = existing_user.get("plan", "free")
+                    role = existing_user.get("role", "user")
+                else:
+                    raise
+            
+            user_id = data["id"]
+            plan = "free"
         
         # Delete old sessions for this user
         await db.user_sessions.delete_many({"user_id": user_id})
