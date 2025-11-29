@@ -358,7 +358,8 @@ async def create_session(request: SessionRequest, response: Response):
             "email": data["email"],
             "name": data["name"],
             "picture": data["picture"],
-            "plan": plan
+            "plan": plan,
+            "role": role
         }
         
         return {
