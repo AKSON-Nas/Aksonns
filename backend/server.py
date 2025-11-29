@@ -391,6 +391,84 @@ async def upgrade_plan(user: User = Depends(get_current_user)):
     await db.users.update_one({"id": user.id}, {"$set": {"plan": "premium"}})
     return {"success": True, "plan": "premium"}
 
+# ==================== ADMIN - PLAN MANAGEMENT ====================
+
+@api_router.post("/admin/plans", response_model=Plan)
+async def create_plan(plan: PlanCreate, admin: User = Depends(get_admin_user)):
+    plan_data = plan.model_dump()
+    plan_obj = Plan(**plan_data)
+    doc = plan_obj.model_dump()
+    
+    # Convert features list to dict format for MongoDB
+    doc["features"] = [f.model_dump() for f in plan.features]
+    
+    await db.plans.insert_one(doc)
+    logger.info(f"Plan created by admin {admin.email}: {plan.name}")
+    return plan_obj
+
+@api_router.get("/admin/plans", response_model=List[Plan])
+async def get_all_plans(admin: User = Depends(get_admin_user)):
+    plans = await db.plans.find({}, {"_id": 0}).to_list(1000)
+    return [Plan(**p) for p in plans]
+
+@api_router.put("/admin/plans/{plan_id}", response_model=Plan)
+async def update_plan(plan_id: str, plan_update: PlanUpdate, admin: User = Depends(get_admin_user)):
+    update_data = {k: v for k, v in plan_update.model_dump().items() if v is not None}
+    
+    if "features" in update_data:
+        update_data["features"] = [f.model_dump() for f in update_data["features"]]
+    
+    await db.plans.update_one({"id": plan_id}, {"$set": update_data})
+    updated = await db.plans.find_one({"id": plan_id}, {"_id": 0})
+    
+    logger.info(f"Plan {plan_id} updated by admin {admin.email}")
+    return Plan(**updated)
+
+@api_router.delete("/admin/plans/{plan_id}")
+async def delete_plan(plan_id: str, admin: User = Depends(get_admin_user)):
+    plan = await db.plans.find_one({"id": plan_id})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Don't allow deleting if users are using this plan
+    users_count = await db.users.count_documents({"plan": plan["name"]})
+    if users_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete plan. {users_count} users are using it")
+    
+    await db.plans.delete_one({"id": plan_id})
+    logger.info(f"Plan {plan_id} deleted by admin {admin.email}")
+    return {"success": True}
+
+@api_router.get("/admin/users", response_model=List[User])
+async def get_all_users(admin: User = Depends(get_admin_user)):
+    users = await db.users.find({}, {"_id": 0}).to_list(10000)
+    return [User(**u) for u in users]
+
+@api_router.put("/admin/users/{user_id}/plan")
+async def change_user_plan(user_id: str, new_plan: str, admin: User = Depends(get_admin_user)):
+    # Verify plan exists
+    plan = await db.plans.find_one({"name": new_plan})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    await db.users.update_one({"id": user_id}, {"$set": {"plan": new_plan}})
+    logger.info(f"Admin {admin.email} changed user {user_id} to plan {new_plan}")
+    return {"success": True, "plan": new_plan}
+
+@api_router.get("/plans/public", response_model=List[Plan])
+async def get_public_plans():
+    """Get all active plans (public endpoint)"""
+    plans = await db.plans.find({"is_active": True}, {"_id": 0}).to_list(1000)
+    return [Plan(**p) for p in plans]
+
+@api_router.get("/plans/my-features")
+async def get_my_features(user: User = Depends(get_current_user)):
+    """Get current user's plan features"""
+    plan = await db.plans.find_one({"name": user.plan}, {"_id": 0})
+    if not plan:
+        return {"features": []}
+    return {"features": plan.get("features", [])}
+
 # ==================== COMPANY ENDPOINTS ====================
 
 @api_router.post("/company", response_model=CompanyInfo)
