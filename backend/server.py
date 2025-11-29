@@ -105,6 +105,32 @@ class Payment(BaseModel):
 class PaymentCreate(BaseModel):
     plan_name: str
 
+class SupportMessage(BaseModel):
+    sender_id: str
+    sender_name: str
+    message: str
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class SupportTicket(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    user_email: str
+    subject: str
+    status: str = "open"  # open, in_progress, closed
+    messages: List[SupportMessage] = []
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class SupportTicketCreate(BaseModel):
+    subject: str
+    message: str
+
+class SupportMessageCreate(BaseModel):
+    ticket_id: str
+    message: str
+
 class CompanyInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
