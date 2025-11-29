@@ -188,7 +188,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="plans" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="plans" data-testid="tab-plans">
             <CreditCard className="h-4 w-4 mr-2" />
             Planos
@@ -200,6 +200,10 @@ export default function AdminPanel() {
           <TabsTrigger value="payments" data-testid="tab-payments">
             <Shield className="h-4 w-4 mr-2" />
             Pagamentos
+          </TabsTrigger>
+          <TabsTrigger value="support" data-testid="tab-support">
+            <Shield className="h-4 w-4 mr-2" />
+            Suporte
           </TabsTrigger>
         </TabsList>
 
