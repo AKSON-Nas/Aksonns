@@ -496,6 +496,163 @@ async def get_my_features(user: User = Depends(get_current_user)):
         return {"features": []}
     return {"features": plan.get("features", [])}
 
+# ==================== PAYMENT CONFIGURATION ====================
+
+@api_router.post("/admin/payment-config")
+async def save_payment_config(config: PaymentConfigCreate, admin: User = Depends(get_admin_user)):
+    # Delete existing config
+    await db.payment_config.delete_many({})
+    
+    config_obj = PaymentConfig(**config.model_dump())
+    doc = config_obj.model_dump()
+    await db.payment_config.insert_one(doc)
+    
+    logger.info(f"Payment config saved by admin {admin.email}")
+    return {"success": True}
+
+@api_router.get("/admin/payment-config")
+async def get_payment_config(admin: User = Depends(get_admin_user)):
+    config = await db.payment_config.find_one({}, {"_id": 0})
+    if not config:
+        return None
+    # Hide sensitive token (show only last 4 chars)
+    if config.get("mercadopago_access_token"):
+        token = config["mercadopago_access_token"]
+        config["mercadopago_access_token"] = "*" * (len(token) - 4) + token[-4:]
+    return config
+
+@api_router.get("/admin/payments", response_model=List[Payment])
+async def get_all_payments(admin: User = Depends(get_admin_user)):
+    payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [Payment(**p) for p in payments]
+
+# ==================== PAYMENT ENDPOINTS ====================
+
+@api_router.post("/payments/create-pix")
+async def create_pix_payment(payment_req: PaymentCreate, user: User = Depends(get_current_user)):
+    try:
+        # Get plan
+        plan = await db.plans.find_one({"name": payment_req.plan_name}, {"_id": 0})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Get payment config
+        config = await db.payment_config.find_one({}, {"_id": 0})
+        if not config:
+            raise HTTPException(status_code=400, detail="Payment not configured. Contact admin.")
+        
+        # Initialize Mercado Pago SDK
+        sdk = mercadopago.SDK(config["mercadopago_access_token"])
+        
+        # Create payment
+        payment_data = {
+            "transaction_amount": float(plan["price"]),
+            "description": f"Plano {plan['display_name']} - Planeja Negócio",
+            "payment_method_id": "pix",
+            "payer": {
+                "email": user.email,
+                "first_name": user.name.split()[0] if user.name else "User",
+                "last_name": " ".join(user.name.split()[1:]) if len(user.name.split()) > 1 else "User"
+            },
+            "notification_url": config.get("webhook_url") if config.get("webhook_url") else None
+        }
+        
+        result = sdk.payment().create(payment_data)
+        payment_response = result["response"]
+        
+        if result["status"] == 201:
+            # Save payment to database
+            payment_obj = Payment(
+                user_id=user.id,
+                plan_name=payment_req.plan_name,
+                amount=plan["price"],
+                status="pending",
+                mercadopago_payment_id=str(payment_response["id"]),
+                qr_code=payment_response.get("point_of_interaction", {}).get("transaction_data", {}).get("qr_code"),
+                qr_code_base64=payment_response.get("point_of_interaction", {}).get("transaction_data", {}).get("qr_code_base64")
+            )
+            
+            doc = payment_obj.model_dump()
+            await db.payments.insert_one(doc)
+            
+            logger.info(f"PIX payment created for user {user.email}: R$ {plan['price']}")
+            
+            return {
+                "success": True,
+                "payment_id": payment_obj.id,
+                "qr_code": payment_obj.qr_code,
+                "qr_code_base64": payment_obj.qr_code_base64,
+                "amount": payment_obj.amount,
+                "plan_name": plan["display_name"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to create payment")
+            
+    except Exception as e:
+        logger.error(f"Payment creation error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Payment error: {str(e)}")
+
+@api_router.get("/payments/my-payments", response_model=List[Payment])
+async def get_my_payments(user: User = Depends(get_current_user)):
+    payments = await db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [Payment(**p) for p in payments]
+
+@api_router.post("/payments/webhook")
+async def mercadopago_webhook(request: dict):
+    """Webhook to receive payment notifications from Mercado Pago"""
+    try:
+        logger.info(f"Webhook received: {request}")
+        
+        # Mercado Pago sends the payment ID in the data
+        if request.get("type") == "payment":
+            payment_id = request.get("data", {}).get("id")
+            
+            if not payment_id:
+                return {"status": "ignored"}
+            
+            # Get payment config
+            config = await db.payment_config.find_one({}, {"_id": 0})
+            if not config:
+                logger.error("Payment config not found for webhook")
+                return {"status": "error"}
+            
+            # Get payment details from Mercado Pago
+            sdk = mercadopago.SDK(config["mercadopago_access_token"])
+            payment_info = sdk.payment().get(payment_id)
+            
+            if payment_info["status"] == 200:
+                mp_payment = payment_info["response"]
+                status = mp_payment.get("status")
+                
+                # Find our payment record
+                our_payment = await db.payments.find_one(
+                    {"mercadopago_payment_id": str(payment_id)},
+                    {"_id": 0}
+                )
+                
+                if our_payment:
+                    # Update payment status
+                    await db.payments.update_one(
+                        {"id": our_payment["id"]},
+                        {"$set": {"status": status}}
+                    )
+                    
+                    # If approved, upgrade user
+                    if status == "approved":
+                        await db.users.update_one(
+                            {"id": our_payment["user_id"]},
+                            {"$set": {"plan": our_payment["plan_name"]}}
+                        )
+                        logger.info(f"✅ Payment approved! User {our_payment['user_id']} upgraded to {our_payment['plan_name']}")
+                    
+                    return {"status": "processed"}
+        
+        return {"status": "ignored"}
+        
+    except Exception as e:
+        logger.error(f"Webhook error: {str(e)}", exc_info=True)
+        return {"status": "error"}
+
 # ==================== COMPANY ENDPOINTS ====================
 
 @api_router.post("/company", response_model=CompanyInfo)
