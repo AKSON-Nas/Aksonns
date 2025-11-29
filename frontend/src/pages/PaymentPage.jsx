@@ -68,11 +68,17 @@ export default function PaymentPage() {
       }, 1000);
     } catch (error) {
       console.error('Payment error:', error);
-      if (error.response?.status === 400 && error.response?.data?.detail?.includes('not configured')) {
+      const errorMessage = error.response?.data?.detail || error.message;
+      
+      if (errorMessage?.includes('not configured')) {
         toast.error('Pagamento não configurado. Entre em contato com o administrador.');
+      } else if (errorMessage?.includes('Mercado Pago')) {
+        toast.error(`Erro do Mercado Pago: ${errorMessage}`);
       } else {
-        toast.error('Erro ao gerar QR Code. Tente novamente.');
+        toast.error(`Erro ao gerar QR Code: ${errorMessage}`);
       }
+      
+      console.log('Full error:', error.response?.data);
     } finally {
       setLoading(false);
     }
