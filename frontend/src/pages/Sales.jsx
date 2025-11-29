@@ -86,6 +86,23 @@ export default function Sales() {
     }
   };
 
+  const handlePrintReceipt = async (saleId) => {
+    try {
+      const response = await axios.get(`${API}/sales/${saleId}/receipt`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `comprovante_venda_${saleId.slice(0, 8)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Comprovante gerado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao gerar comprovante');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="animate-fade-in" data-testid="sales-page">
       <div className="mb-8 flex items-center justify-between">
