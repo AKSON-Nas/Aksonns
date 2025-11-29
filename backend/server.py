@@ -241,7 +241,7 @@ async def create_session(request: SessionRequest, response: Response):
     try:
         logger.info(f"Creating session for session_id: {session_id[:20]}...")
         
-        auth_response = requests.post(
+        auth_response = requests.get(
             "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
             headers={"X-Session-ID": session_id},
             timeout=10
