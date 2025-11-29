@@ -30,18 +30,27 @@ function App() {
         const sessionId = hash.split('session_id=')[1].split('&')[0];
         
         try {
-          await axios.post(`${API}/auth/session`, { session_id: sessionId });
+          console.log('Processing session_id from OAuth redirect...');
+          const sessionResponse = await axios.post(`${API}/auth/session`, { session_id: sessionId });
+          console.log('Session created successfully:', sessionResponse.data);
+          
+          // Limpar hash
           window.location.hash = '';
           
-          // Buscar dados do usuário após criar sessão
-          const response = await axios.get(`${API}/auth/me`);
-          setUser(response.data);
+          // Setar usuário do response
+          if (sessionResponse.data.user) {
+            setUser(sessionResponse.data.user);
+          }
+          
           setLoading(false);
           
-          // Redirecionar para dashboard
-          window.location.href = '/dashboard';
+          // Redirecionar para dashboard após um pequeno delay
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 100);
         } catch (error) {
           console.error('Session creation failed:', error);
+          alert('Erro ao criar sessão. Tente novamente.');
           setLoading(false);
         }
         return;
