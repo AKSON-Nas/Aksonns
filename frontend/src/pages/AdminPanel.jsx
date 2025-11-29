@@ -544,15 +544,34 @@ export default function AdminPanel() {
                   </div>
                 )}
 
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm font-semibold mb-2">📚 Como configurar:</p>
-                  <ol className="text-sm space-y-1 list-decimal list-inside">
-                    <li>Acesse <a href="https://www.mercadopago.com.br/developers" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Mercado Pago Developers</a></li>
-                    <li>Crie uma aplicação ou use uma existente</li>
-                    <li>Copie o "Access Token" de produção</li>
-                    <li>Cole aqui e salve</li>
-                    <li>Pronto! Pagamentos via PIX estarão ativos 🎉</li>
-                  </ol>
+                <div className="space-y-3">
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                    <p className="text-sm font-semibold mb-2 text-yellow-900">⚠️ Erro "Unauthorized use of live credentials"?</p>
+                    <p className="text-sm text-yellow-800 mb-2">
+                      Sua conta ainda não foi homologada para produção.
+                    </p>
+                    <p className="text-sm font-semibold text-yellow-900">
+                      Solução: Use credenciais de TESTE temporariamente
+                    </p>
+                    <ol className="text-sm space-y-1 list-decimal list-inside text-yellow-800 mt-2">
+                      <li>No Mercado Pago, escolha modo <strong>TESTE</strong></li>
+                      <li>Copie o token que começa com <code className="bg-yellow-100 px-1">TEST-...</code></li>
+                      <li>Cole acima e teste</li>
+                      <li>Para produção: complete homologação no MP</li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p className="text-sm font-semibold mb-2">📚 Como configurar:</p>
+                    <ol className="text-sm space-y-1 list-decimal list-inside">
+                      <li>Acesse <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Mercado Pago Developers</a></li>
+                      <li>Crie uma aplicação ou use uma existente</li>
+                      <li>Escolha modo <strong>TESTE</strong> ou <strong>PRODUÇÃO</strong></li>
+                      <li>Copie o "Access Token"</li>
+                      <li>Cole aqui e salve</li>
+                      <li>Pronto! Pagamentos via PIX estarão ativos 🎉</li>
+                    </ol>
+                  </div>
                 </div>
               </CardContent>
             </Card>
