@@ -1272,6 +1272,141 @@ async def get_sales_analytics(user: User = Depends(get_current_user)):
         "top_clients": [{"name": name, "total": total} for name, total in top_clients]
     }
 
+@api_router.get("/sales/{sale_id}/receipt")
+async def generate_sale_receipt(sale_id: str, user: User = Depends(get_current_user)):
+    """Generate printable receipt with warranty for a sale"""
+    if user.plan == "free":
+        raise HTTPException(status_code=403, detail="Upgrade to Premium")
+    
+    sale = await db.sales.find_one({"id": sale_id, "user_id": user.id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    company = await db.companies.find_one({"user_id": user.id}, {"_id": 0})
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=22, textColor=colors.HexColor('#1e40af'), alignment=TA_CENTER, spaceAfter=12)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, textColor=colors.gray, alignment=TA_CENTER, spaceAfter=20)
+    section_title = ParagraphStyle('SectionTitle', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1e40af'), spaceAfter=8, spaceBefore=12)
+    
+    # Logo da empresa
+    if company and company.get('logo_url'):
+        try:
+            if company['logo_url'].startswith('data:'):
+                base64_data = company['logo_url'].split(',')[1]
+                img_data = base64.b64decode(base64_data)
+                img = Image(BytesIO(img_data), width=1.2*inch, height=1.2*inch)
+                story.append(img)
+                story.append(Spacer(1, 8))
+        except:
+            pass
+    
+    # Título
+    story.append(Paragraph("COMPROVANTE DE VENDA", title_style))
+    story.append(Paragraph(f"Nº {sale_id[:8].upper()}", subtitle_style))
+    
+    # Dados da empresa
+    if company:
+        company_info = f"<b>{company.get('name', '')}</b><br/>{company.get('address', '')}<br/>{company.get('phone', '')} | {company.get('email', '')}"
+        story.append(Paragraph(company_info, styles['Normal']))
+        story.append(Spacer(1, 16))
+    
+    # Data e hora da venda
+    sale_date = datetime.fromisoformat(sale['created_at'])
+    story.append(Paragraph(f"<b>Data:</b> {sale_date.strftime('%d/%m/%Y às %H:%M')}", styles['Normal']))
+    story.append(Paragraph(f"<b>Cliente:</b> {sale['client_name']}", styles['Normal']))
+    story.append(Paragraph(f"<b>Forma de Pagamento:</b> {sale['payment_method'].replace('_', ' ').title()}", styles['Normal']))
+    story.append(Spacer(1, 16))
+    
+    # Tabela de itens
+    story.append(Paragraph("ITENS VENDIDOS", section_title))
+    table_data = [['Descrição', 'Qtd', 'Preço Unit.', 'Total']]
+    for item in sale['items']:
+        table_data.append([
+            item['description'],
+            str(item['quantity']),
+            f"R$ {item['unit_price']:.2f}",
+            f"R$ {item['total']:.2f}"
+        ])
+    
+    table = Table(table_data, colWidths=[3.5*inch, 0.8*inch, 1.3*inch, 1.3*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 16))
+    
+    # Total
+    totals_style = ParagraphStyle('Totals', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=13, spaceBefore=4)
+    story.append(Paragraph(f"<b>VALOR TOTAL:</b> R$ {sale['total']:.2f}", totals_style))
+    story.append(Spacer(1, 24))
+    
+    # Termos de garantia
+    story.append(Paragraph("TERMOS DE GARANTIA", section_title))
+    warranty_end = sale_date + timedelta(days=90)
+    
+    warranty_text = f"""
+    <b>Garantia:</b> 90 dias a partir da data de compra<br/>
+    <b>Válida até:</b> {warranty_end.strftime('%d/%m/%Y')}<br/><br/>
+    
+    <b>Condições da Garantia:</b><br/>
+    • A garantia cobre defeitos de fabricação e mau funcionamento<br/>
+    • Não cobre danos causados por uso inadequado, queda ou acidentes<br/>
+    • Para acionar a garantia, apresente este comprovante<br/>
+    • O produto será reparado ou substituído a critério da empresa<br/>
+    • Conserve este documento em local seguro<br/><br/>
+    
+    <b>Observações Importantes:</b><br/>
+    • Este comprovante é válido como nota de venda<br/>
+    • Guarde-o junto com a garantia do fabricante (quando aplicável)<br/>
+    • Em caso de dúvidas, entre em contato conosco
+    """
+    story.append(Paragraph(warranty_text, styles['Normal']))
+    story.append(Spacer(1, 30))
+    
+    # Campo de assinatura
+    story.append(Paragraph("ASSINATURA DO CLIENTE", section_title))
+    story.append(Spacer(1, 8))
+    
+    # Linha para assinatura
+    signature_table = Table([
+        ['_' * 60],
+        ['Assinatura do Cliente'],
+        [''],
+        [f'Data: ___/___/______']
+    ], colWidths=[5*inch])
+    signature_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.gray),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
+        ('TOPPADDING', (0, 1), (-1, 1), 8)
+    ]))
+    story.append(signature_table)
+    story.append(Spacer(1, 20))
+    
+    # Rodapé
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, textColor=colors.gray, alignment=TA_CENTER)
+    story.append(Paragraph("Este documento foi gerado eletronicamente e é válido sem assinatura ou carimbo da empresa.", footer_style))
+    if company:
+        story.append(Paragraph(f"{company.get('name', '')} - {company.get('phone', '')} - {company.get('email', '')}", footer_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=comprovante_venda_{sale_id[:8]}.pdf"})
+
 from datetime import timedelta
 
 app.include_router(api_router)
