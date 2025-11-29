@@ -39,6 +39,7 @@ class User(BaseModel):
     name: str
     picture: str
     plan: str = "free"
+    role: str = "user"  # user or admin
     created_at: str
 
 class UserSession(BaseModel):
