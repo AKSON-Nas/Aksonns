@@ -17,6 +17,7 @@ const API = `${BACKEND_URL}/api`;
 export default function AdminPanel() {
   const [plans, setPlans] = useState([]);
   const [users, setUsers] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   
@@ -26,6 +27,12 @@ export default function AdminPanel() {
     price: 0,
     features: []
   });
+
+  const [paymentConfig, setPaymentConfig] = useState({
+    mercadopago_access_token: '',
+    webhook_url: ''
+  });
+  const [configSaved, setConfigSaved] = useState(false);
 
   const availableFeatures = [
     { name: 'guide', label: 'Guia Financeiro' },
