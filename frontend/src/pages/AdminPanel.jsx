@@ -1,0 +1,371 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+import { Shield, Users, CreditCard, Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
+
+export default function AdminPanel() {
+  const [plans, setPlans] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    display_name: '',
+    price: 0,
+    features: []
+  });
+
+  const availableFeatures = [
+    { name: 'guide', label: 'Guia Financeiro' },
+    { name: 'budgets', label: 'Orçamentos' },
+    { name: 'stock', label: 'Controle de Estoque' },
+    { name: 'sales', label: 'Gestão de Vendas' },
+    { name: 'clients', label: 'Cadastro de Clientes' },
+    { name: 'products', label: 'Cadastro de Produtos' },
+    { name: 'suppliers', label: 'Cadastro de Fornecedores' },
+    { name: 'employees', label: 'Cadastro de Funcionários' },
+    { name: 'analytics', label: 'Analytics Avançado' },
+    { name: 'pdf_export', label: 'Exportação PDF' }
+  ];
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [plansRes, usersRes] = await Promise.all([
+        axios.get(`${API}/admin/plans`),
+        axios.get(`${API}/admin/users`)
+      ]);
+      setPlans(plansRes.data);
+      setUsers(usersRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      if (error.response?.status === 403) {
+        toast.error('Acesso negado. Você precisa ser admin.');
+      }
+    }
+  };
+
+  const handleFeatureToggle = (featureName) => {
+    setPlanForm(prev => {
+      const features = [...prev.features];
+      const index = features.findIndex(f => f.name === featureName);
+      
+      if (index >= 0) {
+        features[index].enabled = !features[index].enabled;
+      } else {
+        features.push({ name: featureName, enabled: true });
+      }
+      
+      return { ...prev, features };
+    });
+  };
+
+  const isFeatureEnabled = (featureName) => {
+    const feature = planForm.features.find(f => f.name === featureName);
+    return feature ? feature.enabled : false;
+  };
+
+  const handleCreatePlan = async () => {
+    if (!planForm.name || !planForm.display_name) {
+      toast.error('Preencha nome e nome de exibição');
+      return;
+    }
+
+    try {
+      if (editingPlan) {
+        await axios.put(`${API}/admin/plans/${editingPlan.id}`, planForm);
+        toast.success('Plano atualizado!');
+      } else {
+        await axios.post(`${API}/admin/plans`, planForm);
+        toast.success('Plano criado!');
+      }
+      
+      setShowPlanDialog(false);
+      setEditingPlan(null);
+      setPlanForm({ name: '', display_name: '', price: 0, features: [] });
+      fetchData();
+    } catch (error) {
+      toast.error('Erro ao salvar plano');
+      console.error(error);
+    }
+  };
+
+  const handleEditPlan = (plan) => {
+    setEditingPlan(plan);
+    setPlanForm({
+      name: plan.name,
+      display_name: plan.display_name,
+      price: plan.price,
+      features: plan.features
+    });
+    setShowPlanDialog(true);
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!confirm('Tem certeza que deseja deletar este plano?')) return;
+
+    try {
+      await axios.delete(`${API}/admin/plans/${planId}`);
+      toast.success('Plano deletado!');
+      fetchData();
+    } catch (error) {
+      if (error.response?.status === 400) {
+        toast.error(error.response.data.detail);
+      } else {
+        toast.error('Erro ao deletar plano');
+      }
+    }
+  };
+
+  const handleChangeUserPlan = async (userId, newPlan) => {
+    try {
+      await axios.put(`${API}/admin/users/${userId}/plan`, null, {
+        params: { new_plan: newPlan }
+      });
+      toast.success('Plano do usuário alterado!');
+      fetchData();
+    } catch (error) {
+      toast.error('Erro ao alterar plano');
+    }
+  };
+
+  return (
+    <div className="animate-fade-in" data-testid="admin-panel">
+      <div className="mb-8">
+        <div className="flex items-center mb-4">
+          <Shield className="h-10 w-10 text-red-600 mr-4" />
+          <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Painel Admin
+          </h1>
+        </div>
+        <p className="text-gray-600 text-lg">Gerencie planos, usuários e configurações do sistema</p>
+      </div>
+
+      <Tabs defaultValue="plans" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="plans" data-testid="tab-plans">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Planos
+          </TabsTrigger>
+          <TabsTrigger value="users" data-testid="tab-users">
+            <Users className="h-4 w-4 mr-2" />
+            Usuários
+          </TabsTrigger>
+        </TabsList>
+
+        {/* PLANS TAB */}
+        <TabsContent value="plans">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Gerenciar Planos</CardTitle>
+                <CardDescription>Crie e edite planos de assinatura</CardDescription>
+              </div>
+              <Dialog open={showPlanDialog} onOpenChange={(open) => {
+                setShowPlanDialog(open);
+                if (!open) {
+                  setEditingPlan(null);
+                  setPlanForm({ name: '', display_name: '', price: 0, features: [] });
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-red-600 to-pink-600" data-testid="new-plan-btn">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Plano
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Nome (ID)</Label>
+                        <Input
+                          value={planForm.name}
+                          onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                          placeholder="ex: premium"
+                          disabled={editingPlan}
+                          data-testid="plan-name-input"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Identificador único (sem espaços)</p>
+                      </div>
+                      <div>
+                        <Label>Nome de Exibição</Label>
+                        <Input
+                          value={planForm.display_name}
+                          onChange={(e) => setPlanForm({ ...planForm, display_name: e.target.value })}
+                          placeholder="ex: Premium"
+                          data-testid="plan-display-name-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Preço (R$)</Label>
+                      <Input
+                        type="number"
+                        value={planForm.price}
+                        onChange={(e) => setPlanForm({ ...planForm, price: parseFloat(e.target.value) })}
+                        placeholder="0.00"
+                        data-testid="plan-price-input"
+                      />
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <Label className="text-lg mb-3 block">Features</Label>
+                      <div className="space-y-3">
+                        {availableFeatures.map((feature) => (
+                          <div key={feature.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <Label className="cursor-pointer" htmlFor={`feature-${feature.name}`}>
+                              {feature.label}
+                            </Label>
+                            <Switch
+                              id={`feature-${feature.name}`}
+                              checked={isFeatureEnabled(feature.name)}
+                              onCheckedChange={() => handleFeatureToggle(feature.name)}
+                              data-testid={`feature-toggle-${feature.name}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Button onClick={handleCreatePlan} className="w-full bg-gradient-to-r from-red-600 to-pink-600" data-testid="save-plan-btn">
+                      {editingPlan ? 'Atualizar Plano' : 'Criar Plano'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {plans.map((plan) => (
+                  <Card key={plan.id} className="relative">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>{plan.display_name}</CardTitle>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => handleEditPlan(plan)} data-testid={`edit-plan-${plan.name}`}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDeletePlan(plan.id)} data-testid={`delete-plan-${plan.name}`}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CardDescription>
+                        <span className="text-2xl font-bold text-green-600">R$ {plan.price.toFixed(2)}</span>/mês
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold mb-2">Features:</p>
+                        {plan.features.map((feature) => {
+                          const featureLabel = availableFeatures.find(f => f.name === feature.name)?.label || feature.name;
+                          return (
+                            <div key={feature.name} className="flex items-center text-sm">
+                              {feature.enabled ? (
+                                <Check className="h-4 w-4 text-green-600 mr-2" />
+                              ) : (
+                                <X className="h-4 w-4 text-red-500 mr-2" />
+                              )}
+                              <span className={feature.enabled ? '' : 'line-through text-gray-400'}>
+                                {featureLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-xs text-gray-500">ID: {plan.name}</p>
+                        <p className="text-xs text-gray-500">Status: {plan.is_active ? '✅ Ativo' : '❌ Inativo'}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* USERS TAB */}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gerenciar Usuários</CardTitle>
+              <CardDescription>Visualize e altere planos dos usuários</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Plano Atual</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Cadastro</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          user.plan === 'premium' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {user.plan}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>
+                        <select
+                          className="border rounded px-2 py-1 text-sm"
+                          value={user.plan}
+                          onChange={(e) => handleChangeUserPlan(user.id, e.target.value)}
+                          data-testid={`change-plan-${user.id}`}
+                        >
+                          {plans.map((plan) => (
+                            <option key={plan.name} value={plan.name}>
+                              {plan.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
