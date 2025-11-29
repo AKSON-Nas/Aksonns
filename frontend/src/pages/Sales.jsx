@@ -322,6 +322,7 @@ export default function Sales() {
                   <TableHead>Pagamento</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -336,6 +337,17 @@ export default function Sales() {
                       <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                         {sale.status}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePrintReceipt(sale.id)}
+                        data-testid={`print-receipt-${sale.id}`}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Comprovante
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
