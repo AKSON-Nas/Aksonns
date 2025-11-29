@@ -52,6 +52,32 @@ class UserSession(BaseModel):
 class SessionRequest(BaseModel):
     session_id: str
 
+class PlanFeature(BaseModel):
+    name: str
+    enabled: bool
+
+class Plan(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    display_name: str
+    price: float
+    features: List[PlanFeature]
+    is_active: bool = True
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class PlanCreate(BaseModel):
+    name: str
+    display_name: str
+    price: float
+    features: List[PlanFeature]
+
+class PlanUpdate(BaseModel):
+    display_name: Optional[str] = None
+    price: Optional[float] = None
+    features: Optional[List[PlanFeature]] = None
+    is_active: Optional[bool] = None
+
 class CompanyInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
