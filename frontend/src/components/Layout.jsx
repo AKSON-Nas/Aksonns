@@ -4,7 +4,7 @@ import { AppContext } from '../App';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Home, FileText, Package, TrendingUp, BookOpen, LogOut, Crown, Shield } from 'lucide-react';
+import { Home, FileText, Package, TrendingUp, BookOpen, LogOut, Crown, Shield, HeadphonesIcon } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
