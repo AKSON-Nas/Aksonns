@@ -158,6 +158,23 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSavePaymentConfig = async () => {
+    if (!paymentConfig.mercadopago_access_token) {
+      toast.error('Preencha o Access Token do Mercado Pago');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/admin/payment-config`, paymentConfig);
+      toast.success('Configuração de pagamento salva!');
+      setConfigSaved(true);
+      fetchData();
+    } catch (error) {
+      toast.error('Erro ao salvar configuração');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="animate-fade-in" data-testid="admin-panel">
       <div className="mb-8">
