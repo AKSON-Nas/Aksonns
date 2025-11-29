@@ -185,6 +185,56 @@ export default function AdminPanel() {
     }
   };
 
+  const handleOpenTicket = async (ticket) => {
+    try {
+      const response = await axios.get(`${API}/admin/support/tickets/${ticket.id}`);
+      setSelectedTicket(response.data);
+      setShowTicketDialog(true);
+    } catch (error) {
+      toast.error('Erro ao abrir ticket');
+    }
+  };
+
+  const handleReplyToTicket = async () => {
+    if (!adminReply.trim()) {
+      toast.error('Digite uma resposta');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/admin/support/tickets/${selectedTicket.id}/reply`, {
+        ticket_id: selectedTicket.id,
+        message: adminReply
+      });
+      
+      toast.success('Resposta enviada!');
+      setAdminReply('');
+      
+      // Refresh ticket
+      const response = await axios.get(`${API}/admin/support/tickets/${selectedTicket.id}`);
+      setSelectedTicket(response.data);
+      fetchData();
+    } catch (error) {
+      toast.error('Erro ao enviar resposta');
+    }
+  };
+
+  const handleChangeTicketStatus = async (ticketId, status) => {
+    try {
+      await axios.put(`${API}/admin/support/tickets/${ticketId}/status?status=${status}`);
+      toast.success('Status atualizado!');
+      
+      if (selectedTicket && selectedTicket.id === ticketId) {
+        const response = await axios.get(`${API}/admin/support/tickets/${ticketId}`);
+        setSelectedTicket(response.data);
+      }
+      
+      fetchData();
+    } catch (error) {
+      toast.error('Erro ao atualizar status');
+    }
+  };
+
   return (
     <div className="animate-fade-in" data-testid="admin-panel">
       <div className="mb-8">
