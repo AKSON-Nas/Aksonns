@@ -610,6 +610,9 @@ async def create_pix_payment(payment_req: PaymentCreate, user: User = Depends(ge
         result = sdk.payment().create(payment_data)
         payment_response = result["response"]
         
+        logger.info(f"Mercado Pago response status: {result['status']}")
+        logger.info(f"Mercado Pago response: {payment_response}")
+        
         if result["status"] == 201:
             # Save payment to database
             payment_obj = Payment(
@@ -636,7 +639,13 @@ async def create_pix_payment(payment_req: PaymentCreate, user: User = Depends(ge
                 "plan_name": plan["display_name"]
             }
         else:
-            raise HTTPException(status_code=400, detail="Failed to create payment")
+            error_message = payment_response.get("message", "Unknown error")
+            error_details = payment_response.get("cause", [])
+            logger.error(f"Mercado Pago error: {error_message} - {error_details}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Mercado Pago error: {error_message}"
+            )
             
     except Exception as e:
         logger.error(f"Payment creation error: {str(e)}", exc_info=True)
