@@ -27,16 +27,8 @@ export default function Layout({ children }) {
     }
   };
 
-  const handleUpgrade = async () => {
-    try {
-      await axios.post(`${API}/auth/upgrade-plan`);
-      const response = await axios.get(`${API}/auth/me`);
-      setUser(response.data);
-      toast.success('Plano atualizado para Premium!');
-    } catch (error) {
-      console.error('Upgrade error:', error);
-      toast.error('Erro ao atualizar plano');
-    }
+  const handleUpgrade = () => {
+    navigate('/payment');
   };
 
   const navItems = [
