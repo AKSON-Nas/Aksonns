@@ -73,6 +73,7 @@ export default function Layout({ children }) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             const isLocked = item.premium && user?.plan === 'free';
+            const isAdmin = item.admin;
             
             return (
               <Link
@@ -81,9 +82,13 @@ export default function Layout({ children }) {
                 data-testid={`nav-link-${item.label.toLowerCase()}`}
                 className={`flex items-center px-4 py-3 mb-2 rounded-lg transition-all duration-200 ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    ? isAdmin
+                      ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg'
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                     : isLocked
                     ? 'text-gray-400 cursor-not-allowed'
+                    : isAdmin
+                    ? 'text-red-700 hover:bg-red-50 hover:text-red-600 font-semibold'
                     : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
                 }`}
                 onClick={(e) => isLocked && e.preventDefault()}
@@ -91,6 +96,7 @@ export default function Layout({ children }) {
                 <Icon className="h-5 w-5 mr-3" />
                 <span>{item.label}</span>
                 {isLocked && <Crown className="h-4 w-4 ml-auto text-amber-500" />}
+                {isAdmin && <Shield className="h-4 w-4 ml-auto" />}
               </Link>
             );
           })}
