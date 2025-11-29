@@ -281,7 +281,8 @@ async def create_session(request: SessionRequest, response: Response):
             secure=True,
             samesite="none",
             max_age=7*24*60*60,
-            path="/"
+            path="/",
+            domain=None  # Let browser set the domain automatically
         )
         
         return {"success": True, "session_token": session_token}
