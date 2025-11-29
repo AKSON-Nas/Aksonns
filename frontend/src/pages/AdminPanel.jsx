@@ -33,6 +33,12 @@ export default function AdminPanel() {
     webhook_url: ''
   });
   const [configSaved, setConfigSaved] = useState(false);
+  
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showTicketDialog, setShowTicketDialog] = useState(false);
+  const [adminReply, setAdminReply] = useState('');
+  const [supportStats, setSupportStats] = useState({total: 0, open: 0, in_progress: 0, closed: 0});
 
   const availableFeatures = [
     { name: 'guide', label: 'Guia Financeiro' },
