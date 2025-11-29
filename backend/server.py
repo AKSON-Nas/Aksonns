@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 import base64
 from io import BytesIO
+import mercadopago
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
