@@ -703,6 +703,158 @@ async def mercadopago_webhook(request: dict):
         logger.error(f"Webhook error: {str(e)}", exc_info=True)
         return {"status": "error"}
 
+# ==================== SUPPORT ENDPOINTS ====================
+
+@api_router.post("/support/tickets", response_model=SupportTicket)
+async def create_support_ticket(ticket: SupportTicketCreate, user: User = Depends(get_current_user)):
+    """Create a new support ticket"""
+    first_message = SupportMessage(
+        sender_id=user.id,
+        sender_name=user.name,
+        message=ticket.message
+    )
+    
+    ticket_obj = SupportTicket(
+        user_id=user.id,
+        user_name=user.name,
+        user_email=user.email,
+        subject=ticket.subject,
+        messages=[first_message.model_dump()]
+    )
+    
+    doc = ticket_obj.model_dump()
+    await db.support_tickets.insert_one(doc)
+    
+    logger.info(f"Support ticket created by {user.email}: {ticket.subject}")
+    return ticket_obj
+
+@api_router.get("/support/tickets", response_model=List[SupportTicket])
+async def get_my_tickets(user: User = Depends(get_current_user)):
+    """Get all tickets for current user"""
+    tickets = await db.support_tickets.find(
+        {"user_id": user.id}, 
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    return [SupportTicket(**t) for t in tickets]
+
+@api_router.get("/support/tickets/{ticket_id}", response_model=SupportTicket)
+async def get_ticket(ticket_id: str, user: User = Depends(get_current_user)):
+    """Get specific ticket"""
+    ticket = await db.support_tickets.find_one(
+        {"id": ticket_id, "user_id": user.id}, 
+        {"_id": 0}
+    )
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return SupportTicket(**ticket)
+
+@api_router.post("/support/tickets/{ticket_id}/messages")
+async def add_message_to_ticket(ticket_id: str, message: SupportMessageCreate, user: User = Depends(get_current_user)):
+    """Add a message to existing ticket"""
+    ticket = await db.support_tickets.find_one(
+        {"id": ticket_id, "user_id": user.id}, 
+        {"_id": 0}
+    )
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    new_message = SupportMessage(
+        sender_id=user.id,
+        sender_name=user.name,
+        message=message.message
+    )
+    
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {"messages": new_message.model_dump()},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    logger.info(f"Message added to ticket {ticket_id} by {user.email}")
+    return {"success": True}
+
+# ==================== ADMIN - SUPPORT MANAGEMENT ====================
+
+@api_router.get("/admin/support/tickets", response_model=List[SupportTicket])
+async def get_all_support_tickets(admin: User = Depends(get_admin_user)):
+    """Get all support tickets (admin only)"""
+    tickets = await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [SupportTicket(**t) for t in tickets]
+
+@api_router.get("/admin/support/tickets/{ticket_id}", response_model=SupportTicket)
+async def get_support_ticket_admin(ticket_id: str, admin: User = Depends(get_admin_user)):
+    """Get specific ticket (admin)"""
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return SupportTicket(**ticket)
+
+@api_router.post("/admin/support/tickets/{ticket_id}/reply")
+async def reply_to_ticket(ticket_id: str, message: SupportMessageCreate, admin: User = Depends(get_admin_user)):
+    """Reply to a support ticket (admin only)"""
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    admin_message = SupportMessage(
+        sender_id=admin.id,
+        sender_name=f"{admin.name} (Admin)",
+        message=message.message
+    )
+    
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {"messages": admin_message.model_dump()},
+            "$set": {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "status": "in_progress"
+            }
+        }
+    )
+    
+    logger.info(f"Admin {admin.email} replied to ticket {ticket_id}")
+    return {"success": True}
+
+@api_router.put("/admin/support/tickets/{ticket_id}/status")
+async def update_ticket_status(ticket_id: str, status: str, admin: User = Depends(get_admin_user)):
+    """Update ticket status (admin only)"""
+    if status not in ["open", "in_progress", "closed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$set": {
+                "status": status,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    logger.info(f"Admin {admin.email} changed ticket {ticket_id} status to {status}")
+    return {"success": True, "status": status}
+
+@api_router.get("/admin/support/stats")
+async def get_support_stats(admin: User = Depends(get_admin_user)):
+    """Get support statistics"""
+    total = await db.support_tickets.count_documents({})
+    open_tickets = await db.support_tickets.count_documents({"status": "open"})
+    in_progress = await db.support_tickets.count_documents({"status": "in_progress"})
+    closed = await db.support_tickets.count_documents({"status": "closed"})
+    
+    return {
+        "total": total,
+        "open": open_tickets,
+        "in_progress": in_progress,
+        "closed": closed
+    }
+
 # ==================== COMPANY ENDPOINTS ====================
 
 @api_router.post("/company", response_model=CompanyInfo)
