@@ -571,6 +571,35 @@ async def get_payment_config(admin: User = Depends(get_admin_user)):
         config["mercadopago_access_token"] = "*" * (len(token) - 4) + token[-4:]
     return config
 
+@api_router.get("/admin/payment-config/test")
+async def test_payment_config(admin: User = Depends(get_admin_user)):
+    """Test if Mercado Pago token is valid"""
+    config = await db.payment_config.find_one({}, {"_id": 0})
+    if not config:
+        return {"status": "error", "message": "No config found"}
+    
+    try:
+        sdk = mercadopago.SDK(config["mercadopago_access_token"])
+        # Try to get payment methods (simple API call to test token)
+        result = sdk.payment_methods().list_all()
+        
+        if result["status"] == 200:
+            return {
+                "status": "success", 
+                "message": "Token válido! Mercado Pago conectado.",
+                "payment_methods_count": len(result["response"])
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Token inválido. Status: {result['status']}"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Erro ao testar token: {str(e)}"
+        }
+
 @api_router.get("/admin/payments", response_model=List[Payment])
 async def get_all_payments(admin: User = Depends(get_admin_user)):
     payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
