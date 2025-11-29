@@ -400,6 +400,129 @@ export default function AdminPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* PAYMENTS TAB */}
+        <TabsContent value="payments">
+          <div className="space-y-6">
+            {/* Payment Configuration */}
+            <Card className="border-2 border-green-200">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardTitle className="flex items-center">
+                  {configSaved && <Check className="h-5 w-5 text-green-600 mr-2" />}
+                  Configuração do Mercado Pago
+                </CardTitle>
+                <CardDescription>
+                  Configure sua conta do Mercado Pago para receber pagamentos via PIX
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <Label>Access Token do Mercado Pago *</Label>
+                  <Input
+                    type="password"
+                    value={paymentConfig.mercadopago_access_token}
+                    onChange={(e) => setPaymentConfig({...paymentConfig, mercadopago_access_token: e.target.value})}
+                    placeholder="APP_USR-..."
+                    data-testid="mercadopago-token-input"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Obtenha em: <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Painel de Desenvolvedor</a>
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Webhook URL (Opcional)</Label>
+                  <Input
+                    value={paymentConfig.webhook_url}
+                    onChange={(e) => setPaymentConfig({...paymentConfig, webhook_url: e.target.value})}
+                    placeholder="https://seu-site.com/api/payments/webhook"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    URL para receber notificações de pagamento. Configure em: Aplicações → Webhooks
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handleSavePaymentConfig} 
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600"
+                  data-testid="save-payment-config-btn"
+                >
+                  {configSaved ? 'Atualizar Configuração' : 'Salvar Configuração'}
+                </Button>
+
+                {configSaved && (
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <p className="text-sm text-green-800 flex items-center">
+                      <Check className="h-4 w-4 mr-2" />
+                      Pagamentos configurados! Usuários já podem gerar QR Codes.
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold mb-2">📚 Como configurar:</p>
+                  <ol className="text-sm space-y-1 list-decimal list-inside">
+                    <li>Acesse <a href="https://www.mercadopago.com.br/developers" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Mercado Pago Developers</a></li>
+                    <li>Crie uma aplicação ou use uma existente</li>
+                    <li>Copie o "Access Token" de produção</li>
+                    <li>Cole aqui e salve</li>
+                    <li>Pronto! Pagamentos via PIX estarão ativos 🎉</li>
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Histórico de Pagamentos</CardTitle>
+                <CardDescription>Todos os pagamentos realizados no sistema</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    Nenhum pagamento registrado ainda
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Plano</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>ID MP</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{new Date(payment.created_at).toLocaleString('pt-BR')}</TableCell>
+                          <TableCell className="font-medium">{payment.user_id}</TableCell>
+                          <TableCell>{payment.plan_name}</TableCell>
+                          <TableCell className="font-bold text-green-600">R$ {payment.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              payment.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              payment.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {payment.status === 'approved' ? '✅ Aprovado' :
+                               payment.status === 'rejected' ? '❌ Rejeitado' :
+                               '⏱️ Pendente'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs text-gray-500">{payment.mercadopago_payment_id || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
