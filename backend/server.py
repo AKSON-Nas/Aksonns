@@ -302,21 +302,30 @@ async def create_session(request: SessionRequest, response: Response):
         existing_user = await db.users.find_one({"email": data["email"]}, {"_id": 0})
         
         if not existing_user:
+            # Check if this is the admin email
+            role = "admin" if data["email"] == "aksonns4@gmail.com" else "user"
+            
             user_data = {
                 "id": data["id"],
                 "email": data["email"],
                 "name": data["name"],
                 "picture": data["picture"],
                 "plan": "free",
+                "role": role,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.users.insert_one(user_data)
-            logger.info(f"New user created: {data['email']}")
+            logger.info(f"New user created: {data['email']} with role: {role}")
             user_id = data["id"]
             plan = "free"
+            
+            # If admin, log special message
+            if role == "admin":
+                logger.info(f"⭐ ADMIN USER CREATED: {data['email']}")
         else:
             user_id = existing_user["id"]
             plan = existing_user.get("plan", "free")
+            role = existing_user.get("role", "user")
             logger.info(f"Existing user logged in: {data['email']}")
         
         # Delete old sessions for this user
