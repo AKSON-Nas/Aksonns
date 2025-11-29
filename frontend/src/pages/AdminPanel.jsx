@@ -587,6 +587,175 @@ export default function AdminPanel() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* SUPPORT TAB */}
+        <TabsContent value="support">
+          <div className="space-y-6">
+            {/* Support Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Total</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{supportStats.total}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-blue-600">Abertos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-blue-600">{supportStats.open}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-yellow-200 bg-yellow-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-yellow-600">Em Andamento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-yellow-600">{supportStats.in_progress}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-green-200 bg-green-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-green-600">Fechados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-green-600">{supportStats.closed}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tickets List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tickets de Suporte</CardTitle>
+                <CardDescription>Gerencie todas as solicitações de suporte</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {supportTickets.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <HeadphonesIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p>Nenhum ticket de suporte ainda</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {supportTickets.map((ticket) => (
+                      <div 
+                        key={ticket.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => handleOpenTicket(ticket)}
+                        data-testid={`admin-ticket-${ticket.id}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold">{ticket.subject}</h3>
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                ticket.status === 'open' ? 'bg-blue-100 text-blue-800' :
+                                ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {ticket.status === 'open' ? 'Aberto' :
+                                 ticket.status === 'in_progress' ? 'Em Andamento' :
+                                 'Fechado'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{ticket.user_name} ({ticket.user_email})</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(ticket.created_at).toLocaleString('pt-BR')} • {ticket.messages.length} mensagens
+                            </p>
+                          </div>
+                          <MessageCircle className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Ticket Details Dialog */}
+            {selectedTicket && (
+              <Dialog open={showTicketDialog} onOpenChange={setShowTicketDialog}>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <div className="flex items-center justify-between">
+                      <DialogTitle>{selectedTicket.subject}</DialogTitle>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedTicket.status}
+                          onChange={(e) => handleChangeTicketStatus(selectedTicket.id, e.target.value)}
+                          className="border rounded px-3 py-1 text-sm"
+                          data-testid="ticket-status-select"
+                        >
+                          <option value="open">Aberto</option>
+                          <option value="in_progress">Em Andamento</option>
+                          <option value="closed">Fechado</option>
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {selectedTicket.user_name} ({selectedTicket.user_email})
+                    </p>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    {/* Messages */}
+                    <div className="space-y-3 max-h-96 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                      {selectedTicket.messages.map((msg, idx) => {
+                        const isAdmin = msg.sender_name.includes('Admin');
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`p-3 rounded-lg ${
+                              isAdmin 
+                                ? 'bg-blue-100 border-blue-200 border ml-8' 
+                                : 'bg-white border border-gray-200 mr-8'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`font-semibold text-sm ${isAdmin ? 'text-blue-900' : 'text-gray-900'}`}>
+                                {msg.sender_name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(msg.created_at).toLocaleString('pt-BR')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.message}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Admin Reply */}
+                    {selectedTicket.status !== 'closed' && (
+                      <div className="space-y-2">
+                        <Label>Responder como Admin</Label>
+                        <Textarea
+                          value={adminReply}
+                          onChange={(e) => setAdminReply(e.target.value)}
+                          placeholder="Digite sua resposta..."
+                          rows={4}
+                          data-testid="admin-reply-input"
+                        />
+                        <Button 
+                          onClick={handleReplyToTicket} 
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                          data-testid="admin-reply-btn"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar Resposta
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
