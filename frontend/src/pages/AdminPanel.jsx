@@ -53,12 +53,19 @@ export default function AdminPanel() {
 
   const fetchData = async () => {
     try {
-      const [plansRes, usersRes] = await Promise.all([
+      const [plansRes, usersRes, paymentsRes, configRes] = await Promise.all([
         axios.get(`${API}/admin/plans`),
-        axios.get(`${API}/admin/users`)
+        axios.get(`${API}/admin/users`),
+        axios.get(`${API}/admin/payments`),
+        axios.get(`${API}/admin/payment-config`).catch(() => ({ data: null }))
       ]);
       setPlans(plansRes.data);
       setUsers(usersRes.data);
+      setPayments(paymentsRes.data);
+      
+      if (configRes.data) {
+        setConfigSaved(true);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       if (error.response?.status === 403) {
